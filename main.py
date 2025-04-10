@@ -4,8 +4,9 @@
 import datetime
 import os
 import subprocess
+# Read kwargs in the function
 
-def configure_containers(containers, world, number, positions):
+def configure_containers(containers, world, number, positions, **kwargs):
     """
     Configure the containers for the simulation.
     
@@ -14,19 +15,59 @@ def configure_containers(containers, world, number, positions):
         world (str): Name of the world to simulate.
         number (int): Number of robots to simulate.
         positions (list): List of positions for the robots.
+        **kwargs: Additional arguments for configuration.
     """
+    # Get rviz args
+    rviz = kwargs.get('rviz', 'false')
     gz_container = {
         'service_name': 'gazebo_node',
         'name': 'gz_server',
-        'image': 'thdhyan/gz_server:latest',
+        'image': 'thdhyan/gazebo:latest',
         'command': f"""
             source /opt/ros/humble/setup.bash && 
             source /ros2_ws/install/setup.bash && 
-            ros2 launch gazebo_node gazebo.launch.py {world} && 
+            ros2 launch gazebo_node gazebo.launch.py world_name:={world} && 
             tail -f /dev/null
         """,
     }
+    
     containers.append(gz_container)
+    for i in range(number):
+        container = {
+            'service_name': f'robot_{i}',
+            'name': f'robot_{i}',
+            'image': 'thdhyan/robot_node:latest',
+            'command': f"""
+                source /opt/ros/humble/setup.bash && 
+                source /ros2_ws/install/setup.bash && 
+                ros2 launch robot_node spawn_robot.launch.py x_pose:={positions[i*3]} y:={positions[i*3+1]} z:={positions[i*3+2]}  use_rviz:={bool(rviz)}&& 
+                tail -f /dev/null
+            """,
+        }
+        containers.append(container)
+    yolo_container = {
+        'service_name': 'yolo_node',
+        'name': 'yolo_node',
+        'image': 'thdhyan/vision_node:latest',
+        'command': f"""
+            source /opt/ros/humble/setup.bash && 
+            source /ros2_ws/install/setup.bash && 
+            ros2 launch yolo_bringup yolov8.launch.py use_rviz:={bool(rviz)}&& 
+            tail -f /dev/null
+        """,
+    }
+    
+    explore_container = {
+        'service_name': 'explore_node',
+        'name': 'explore_node',
+        'image': 'thdhyan/explore_node:latest',
+        'command': f"""
+            source /opt/ros/humble/setup.bash && 
+            source /ros2_ws/install/setup.bash && 
+            ros2 launch explore_node explore.launch.py explore_strategy:={kwargs.get('explore', 'random')}&& 
+            tail -f /dev/null
+        """,
+    }
     
 def run_containers(containers):
     """
@@ -35,11 +76,26 @@ def run_containers(containers):
     Args:
         containers (list): List of container configurations.
     """
-    docker_compose_file = "docker-compose.yml"
-    base_file = "base_docker_compose.yml"
+    base_file = "base-docker-compose.yaml"
     
     # Read current runnig index from runs.txt
-    with open('runs/runs.txt', 'rw') as f:
+    if not os.path.exists(base_file):
+        with open(base_file, 'w') as f:
+            f.write("\n")
+    if os.path.exists('runs.txt'):
+        with open('runs.txt', 'r') as f:
+            lines = f.readlines()
+            # Set the date and time to be run id  and write it to the file
+            run_id = lines[0].strip()
+    else:
+        # If the file doesn't exist, create it and set the date and time to be run id
+        # and write it to the file
+        with open('runs.txt', 'w') as f:
+            f.write("\n")
+        
+        run_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        
+    with open('runs.txt', 'r+') as f:
         lines = f.readlines()
         # Set the date and time to be run id  and write it to the file
         run_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -51,22 +107,30 @@ def run_containers(containers):
         f.write(str(number_of_robots))      
             
     
+    docker_compose_file = run_id+".docker-compose.yaml"
+
+    
     with open(docker_compose_file, 'w') as f:
         f.write("version: '3.8'\n")
-        
         # Write the base docker compose file
         with open(base_file, 'r') as base_f:
             f.write(base_f.read())
+            
         
-        f.write("services:\n")
+        f.write("\nservices:\n")
 
         # Write the container configurations
         for container in containers:
             f.write(f"  {container['service_name']}:\n")
+            f.write(f"    <<: *common-config \n")
             f.write(f"    container_name: {container['name']}\n")
             f.write(f"    image: {container['image']}\n")
-            f.write(f"    command: {container['command']}\n")
-    command = ["docker-compose", "-f", docker_compose_file, "up"]
+            f.write(f"    command: > \n")
+            f.write(f"      bash -c '{container['command']}'\n")
+        
+        # print(container['command'])
+            
+    command = ["docker","compose", "-f", docker_compose_file, "up", "-d",]
     
     # Execute the command
     subprocess.run(command)
@@ -83,6 +147,8 @@ def main():
     parser.add_argument("-w", "--world", required=True, help="Name of the world to simulate.")
     parser.add_argument("-n", "--number", type=int, required=True, help="Number of robots to simulate.")
     parser.add_argument("-p", "--positions", nargs='+', required=True, help="List of positions for the robots.")
+    parser.add_argument("-r", "--rviz", required=True, help="USE Rviz or not.")
+    parser.add_argument("-e", "--explore", required=True, help="Exploration strategy to use.")
 
     args = parser.parse_args()
 
@@ -95,16 +161,14 @@ def main():
     
     containers = []
     
-    configure_containers(containers, args.world, args.number, args.positions)
-
-    #  Create the docker compose file
-    
-    docker_compose_file = f"{docker_compose_dir}docker-compose.yml"
+    configure_containers(containers, args.world, args.number, args.positions, rviz = args.rviz, explore = args.explore)
+        
+    run_containers(containers)
     
     
     
     # Execute the command
-    subprocess.run(command)
+    # subprocess.run(command)
 
 if __name__ == "__main__":
     main()

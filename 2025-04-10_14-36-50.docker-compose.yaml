@@ -1,3 +1,4 @@
+version: '3.8'
 x-common-config: &common-config
   # Common volumes for all services
   volumes:
@@ -34,3 +35,27 @@ x-common-config: &common-config
   mem_limit: 4g
   # Common runtime for GPU access
   runtime: nvidia
+
+services:
+  gazebo_node:
+    <<: *common-config 
+    container_name: gz_server
+    image: thdhyan/gazebo:latest
+    command: > 
+      bash -c '
+            source /opt/ros/humble/setup.bash && 
+            source /ros2_ws/install/setup.bash && 
+            ros2 launch gazebo_node gazebo.launch.py world_name:=turtlebot3_house.world && 
+            tail -f /dev/null
+        '
+  robot_0:
+    <<: *common-config 
+    container_name: robot_0
+    image: thdhyan/robot_node:latest
+    command: > 
+      bash -c '
+                source /opt/ros/humble/setup.bash && 
+                source /ros2_ws/install/setup.bash && 
+                ros2 launch robot_node spawn_robot.launch.py x_pose:=-6 y:=0 z:=0  use_rviz:=True&& 
+                tail -f /dev/null
+            '
