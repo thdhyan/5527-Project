@@ -48,14 +48,15 @@ def configure_containers(containers, world, number, positions, **kwargs):
     yolo_container = {
         'service_name': 'yolo_node',
         'name': 'yolo_node',
-        'image': 'thdhyan/vision_node:latest',
+        'image': 'thdhyan/vision_ros:latest',
         'command': f"""
-            source /opt/ros/humble/setup.bash && 
-            source /ros2_ws/install/setup.bash && 
-            ros2 launch yolo_bringup yolov8.launch.py use_rviz:={bool(rviz)}&& 
-            tail -f /dev/null
+              source install/setup.bash &&
+              ros2 launch yolo_bringup yolov8.launch.py input_image_topic:=/camera/image_raw &&
+              tail -f /dev/null
         """,
+        # 'entrypoint': ["/bin/bash", "-c", ""],
     }
+    containers.append(yolo_container)
     
     explore_container = {
         'service_name': 'explore_node',
@@ -98,8 +99,7 @@ def run_containers(containers):
     with open('runs.txt', 'r+') as f:
         lines = f.readlines()
         # Set the date and time to be run id  and write it to the file
-        run_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        f.write(run_id)
+        run_id = "current"
         # also write the world name, number of robots and poses to file
         world_name = containers[0]['command'].split(' ')[-1]
         number_of_robots = len(containers) - 1
@@ -127,6 +127,8 @@ def run_containers(containers):
             f.write(f"    image: {container['image']}\n")
             f.write(f"    command: > \n")
             f.write(f"      bash -c '{container['command']}'\n")
+            if 'entrypoint' in container:
+                f.write(f"    entrypoint: {container['entrypoint']}\n")
         
         # print(container['command'])
             

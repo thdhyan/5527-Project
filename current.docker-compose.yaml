@@ -45,7 +45,7 @@ services:
       bash -c '
             source /opt/ros/humble/setup.bash && 
             source /ros2_ws/install/setup.bash && 
-            ros2 launch gazebo_node gazebo.launch.py world_name:=turtlebot3_house.world && 
+            ros2 launch gazebo_node gazebo.launch.py world_name:=small_house.world && 
             tail -f /dev/null
         '
   robot_0:
@@ -56,6 +56,16 @@ services:
       bash -c '
                 source /opt/ros/humble/setup.bash && 
                 source /ros2_ws/install/setup.bash && 
-                ros2 launch robot_node spawn_robot.launch.py x_pose:=-6 y:=0 z:=0  use_rviz:=True&& 
+                ros2 launch robot_node spawn_robot.launch.py x_pose:=-2.5 y:=0 z:=0  use_rviz:=True&& 
                 tail -f /dev/null
             '
+  yolo_node:
+    <<: *common-config 
+    container_name: yolo_node
+    image: thdhyan/vision_ros:latest
+    command: > 
+      bash -c '
+              source install/setup.bash &&
+              ros2 launch yolo_bringup yolov8.launch.py input_image_topic:=/camera/image_raw &&
+              tail -f /dev/null
+        '
