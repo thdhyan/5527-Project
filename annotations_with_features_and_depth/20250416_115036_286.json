@@ -1,0 +1,19 @@
+{
+  "timestamp": 1744804236.2869942,
+  "detections": [],
+  "image_path": "/ros2_ws/data_collection/20250416_114303/images/20250416_115036_286.jpg",
+  "depth_path": "/ros2_ws/data_collection/20250416_114303/depth/20250416_115036_286.png",
+  "robot_pose": {
+    "translation": {
+      "x": -0.38249056373472573,
+      "y": 2.8474336836230543,
+      "z": 0.01
+    },
+    "orientation": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": -0.8011926339510135,
+      "w": 0.5984065201037145
+    }
+  }
+}

@@ -18,7 +18,7 @@ pip install Qwen-VL/requirements.txt
 cd Qwen-VL
 
 !torchrun --nproc_per_node 2 --nnodes 1 --node_rank 0 --master_addr localhost --master_port 6601 ../../finetune.py \
-    --model_name_or_path "Qwen/Qwen2.5-72B-Instruct/" \
+    --model_name_or_path "Qwen/Qwen2.5-VL-72B-Instruct/" \
     --data_path "path/to/our/training_data.json" \
     --bf16 True \
     --output_dir "finetuned_qwen" \
